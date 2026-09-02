@@ -138,6 +138,17 @@ Authenticate:
 firebase login
 ```
 
+The CLI asks two questions before opening a browser:
+
+1. **Enable Gemini in Firebase features?** — say **Yes**. This is what lets the Firebase MCP server (Section 2) use Gemini-backed tools inside Antigravity. Saying no here means some agent features won't work.
+2. **Allow Firebase to collect CLI and Emulator Suite usage and error reporting information?** — your call. It's anonymous telemetry; **No** is fine and changes nothing functionally.
+
+It then prints a long `accounts.google.com` URL and opens it in your default browser. Sign in with the Google account that owns (or will own) your Firebase project and approve the requested permissions. The browser redirects to `localhost:9005`, the terminal prints `Success! Logged in as <your-email>`, and you're done.
+
+If the browser doesn't open, copy the URL from the terminal and paste it in manually. If you're on a machine without a browser (SSH, WSL without a display), use `firebase login --no-localhost` instead — it gives you a code to paste back into the terminal.
+
+To change either answer later: `firebase logout`, then `firebase login` again.
+
 ### Java (for the emulators)
 
 The Firestore emulator runs on the JVM. Install a current JDK if `java -version` fails — the emulator will tell you which minimum version it needs when it starts. On macOS, `brew install openjdk` works; on Ubuntu, `sudo apt-get install -y default-jdk`.
