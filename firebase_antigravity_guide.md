@@ -124,6 +124,12 @@ npm install -g firebase-tools
 firebase --version
 ```
 
+The install prints a wall of warnings. As long as you see `added N packages`, it succeeded — the rest can be ignored:
+
+- **`npm warn deprecated …`** — refers to packages inside firebase-tools' own dependency tree. Those are Google's to update; nothing you can do from your side.
+- **`npm warn install-scripts …`** — newer npm versions skip post-install scripts from indirect dependencies by default. The two it names (`protobufjs`, `re2`) are optional for the Firebase CLI. If you later hit an error mentioning `re2`, rerun with `npm install -g --allow-scripts=protobufjs,re2 firebase-tools`.
+- **`New major version of npm available`** — optional. Nothing in this guide requires it.
+
 If you hit permission errors on macOS or Linux, prefix with `sudo` (or fix your npm prefix — the cleaner fix long-term).
 
 Authenticate:
