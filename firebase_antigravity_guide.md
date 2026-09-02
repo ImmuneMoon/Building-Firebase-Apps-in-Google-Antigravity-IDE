@@ -35,6 +35,37 @@ Antigravity and the Firebase CLI both require **Node.js 20 or higher**, and the 
    npm -v
    ```
 
+#### If `node -v` works but `npm -v` doesn't
+
+This happens often enough after the MSI installer that it's worth knowing the two causes. Read the error message — it tells you which one you have.
+
+**Error mentions `npm.ps1` or "running scripts is disabled"** — PowerShell's execution policy is blocking the npm launcher script. Node and npm are both installed and on PATH; PowerShell just refuses to run `.ps1` files. Fix it for your user account:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+Then rerun `npm -v`. If you'd rather not change the policy, `npm.cmd -v` works immediately and always.
+
+**Error says "npm is not recognized"** — the npm folder isn't on PATH. First try a fresh terminal: the installer updates PATH, but windows opened before the install don't see it. If a new window still fails, add the paths for the current session to confirm that's the problem:
+
+```powershell
+$env:Path += ";$env:ProgramFiles\nodejs;$env:AppData\npm"
+npm -v
+```
+
+If that works, make it permanent:
+
+1. Press `Win + R`, type `sysdm.cpl`, press Enter.
+2. **Advanced** tab → **Environment Variables…**
+3. Under **User variables**, select **Path** → **Edit…** → **New** → add `%AppData%\npm`.
+4. Under **System variables**, select **Path** → **Edit…** and confirm `C:\Program Files\nodejs\` is present. Add it if not.
+5. **OK** through every dialog, then open a **new** PowerShell window.
+
+Verify with `where.exe npm` — it should print a path under `C:\Program Files\nodejs\`.
+
+**Nothing works** — run the Node.js MSI again and choose **Repair**, then reboot. As a last resort, [nvm-windows](https://github.com/coreybutler/nvm-windows) manages Node and npm together and sidesteps PATH issues entirely, but uninstall the MSI version first or the two will fight.
+
 ### macOS
 
 1. Install Homebrew if you don't have it:
