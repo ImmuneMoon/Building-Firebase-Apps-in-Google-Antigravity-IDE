@@ -354,6 +354,23 @@ git commit -m "Migrate from Firebase Studio to Antigravity"
 
 Then create a GitHub repo and push. Once it's on GitHub you can also connect the App Hosting backend to the repo for automatic rollouts (Section 10, Path A).
 
+**If you use GitHub Desktop**, let the agent run `git init` and stage the files, then do the rest in the app — it's the easiest way to get a *private* repo without touching the `gh` CLI:
+
+1. **File → Add local repository…** (`Ctrl+O`), point it at the project folder.
+2. Your files appear as an initial commit. Review the list — this is your last check that no `.env*` or key files slipped through — then **Commit to main**.
+3. Click **Publish repository**, tick **Keep this code private**, add a description, and publish.
+
+Before that first commit, also ignore the things that only mattered in Studio or to the agent and don't contribute to the build: the `.idx/` folder (Studio's workspace config, dead weight now), `CLAUDE.md` or other AI-assistant notes, and `.claude/`. Ask the agent to add them to `.gitignore` *and* unstage them — adding a pattern to `.gitignore` doesn't remove files that are already staged.
+
+### Coming back to this project later
+
+Everything the agent needs to redeploy lives in the project files, not in the chat history, so switching to another project and returning weeks later is fine. What matters:
+
+- **Open the right folder.** The agent's working directory is whatever's open in Antigravity. With the project folder open it reads `.firebaserc` (which Firebase project), `firebase.json` (which App Hosting backend, where the rules are), and `apphosting.yaml` (build-time config) and picks up where you left off.
+- **No special phrasing.** *"Publish my app"*, *"Deploy only my Firestore rules"*, or *"Run the build and then deploy to production"* all work.
+- **New environment variables go in two different places.** A `NEXT_PUBLIC_*` value the static build needs goes in `apphosting.yaml` as a plain `value:`. A real secret stays in `.env.local` locally and goes to App Hosting via `firebase apphosting:secrets:set` with a `secret:` reference in `apphosting.yaml`. Forgetting the first is the build failure described above; putting the second in `value:` leaks it into a committed file.
+- **Commit and push after each session you're happy with**, so the GitHub copy stays current. `firebase deploy` doesn't touch git and git doesn't trigger a deploy unless you've connected the backend to the repo (Section 10, Path A) — they're independent until you wire them together.
+
 Continue at Section 5.
 
 ---
