@@ -187,6 +187,8 @@ A few things worth knowing before you start prompting:
 - **Plans and walkthroughs** — for non-trivial tasks the agent produces an implementation plan you review before it touches files. Read them. This is where you catch it doing something you didn't intend.
 - **Permissions** — the agent asks before running commands like `firebase deploy`. Say no if a plan looks wrong; it will revise.
 - **`@workflows <name>`** — runs a saved workflow file. `@fbs-to-agy-export` (used in Section 3) is one of these.
+- **What it can't see** — the agent works through the CLI and your local files. It cannot open the Google Cloud Console, so when a cloud build fails it will hand you a log link and ask you to paste the error back. It also doesn't automatically know about resources that already exist in your project (like an App Hosting backend created by Studio) unless it goes looking — so mention them in your prompt.
+- **Long-running commands** — deploys and dev servers keep running after the agent says it's "monitoring in the background." Check the terminal panel for the real status rather than waiting on the chat.
 
 ---
 
@@ -216,6 +218,16 @@ Skip to Section 4 if you're starting a new codebase.
 
    The agent reads the Studio workspace config (including the Nix environment definition), rewrites it into a standard local project layout, and installs anything missing. It will ask for help along the way — follow its guidance. If it errors, tell it to try again.
 
+   When it finishes it prints a report. A successful run looks like this — audit rows for Node, Firebase CLI, login state, the linked project, a clean `tsc --noEmit`, and a dev server that answered HTTP 200 — plus a list of files it wrote:
+
+   - `.firebaserc` — project alias pointing at your Firebase project ID.
+   - `firebase.json` — links `firestore.rules` and adds emulator mappings for Auth (9099) and Firestore (8080).
+   - `.vscode/launch.json` — `Next.js: dev` and `Next.js: debug` configurations for the Run & Debug panel.
+
+   If any audit row says anything other than passed/active/linked, fix that before moving on; everything downstream assumes those are true.
+
+   **If `launch.json` shows a schema error:** the `port` property is only valid on *attach* configurations, not *launch* ones. Some exports write `"port": 9229` into the launch configs. Delete that line (or ask the agent to) and the error goes away.
+
 ### Convert the project — Option B, manual (no AI tokens)
 
 ```bash
@@ -244,7 +256,46 @@ Your production data and deployed app are untouched by the export — but the lo
 
 ### Preview locally
 
-Open **Run and Debug** in the left sidebar and click play, or run `npm run dev` in the terminal. Studio-generated Next.js apps usually serve on `http://localhost:9002`. Confirm the app loads and can read from your live Firestore before going further.
+Open **Run and Debug** in the left sidebar and click play (F5), or run `npm run dev` in the terminal. Studio-generated Next.js apps usually serve on `http://localhost:9002`; after the export the port is often reset to Next.js's default of `3000`. Read the terminal — it prints the URL. Confirm the app loads and can read from your live Firestore before going further.
+
+Two things about that terminal that confuse people the first time:
+
+- **It looks frozen. It isn't.** `next dev` is a persistent server. Once you see `✓ Ready in 359ms` and a `Local:` URL, it's up and waiting for requests. It only prints more when you open the URL in a browser, at which point routes compile on demand and you'll see lines like `GET / 200`. Close it with `Ctrl+C` when you're done.
+- **`⚠ Slow filesystem detected`** is an informational note from Next.js, common when the project lives on a secondary or external drive. It doesn't stop anything.
+
+### Lock down `.gitignore` before your first commit
+
+The export doesn't necessarily leave you with a git repository, so this is the moment to make sure nothing sensitive can be committed later. Ask the agent — *"make sure `.gitignore` blocks env files, service account keys, Firebase credentials, and debug logs"* — or add these yourself:
+
+```gitignore
+# secrets and local environment
+.env*
+.genkit/*
+
+# credentials and service account keys
+*serviceAccount*.json
+*credentials*.json
+*-adminsdk-*.json
+google-services.json
+GoogleService-Info.plist
+*.key
+*.p8
+*.p12
+*.pfx
+
+# firebase debug logs
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+
+# scratch and local tools
+tmp/
+.claude/
+```
+
+The agent may also propose ignoring `firestore.rules` and `.firebaserc`. Think twice before accepting. Neither contains a secret — `.firebaserc` is just your project ID, and rules are access policy, not credentials — and **the CI workflows in Section 10 need `firestore.rules` in the repository** to test and deploy it. If your repo is private, commit both. Ignore them only if the repo is public and you'd rather not advertise your data model; then keep a copy somewhere safe, because losing the rules file means reconstructing it from the console.
+
+Note that "confirm no secrets are in source" checks are meaningless until `git init` has actually run — the agent can only check what git tracks. If you haven't initialized a repo yet, do it now (`git init`), then check `git status` and make sure `.env.local` and friends aren't listed.
 
 ### Republish
 
@@ -252,7 +303,56 @@ Once the local preview works:
 
 > *"Publish my app"*
 
-When the agent asks to run `firebase deploy`, choose **Yes**. It detects whether you previously deployed to App Hosting or Hosting and updates your existing live URL. If this is the first App Hosting deploy from this machine, it walks you through creating the backend.
+When the agent asks to run `firebase deploy`, choose **Yes**. It should detect whether you previously deployed to App Hosting or Hosting and update your existing live URL. If this is the first App Hosting deploy from this machine, it walks you through creating the backend.
+
+**Tell it about your existing backend up front.** In practice the agent doesn't always find the backend Studio created — it may answer the CLI's prompts itself and provision a brand-new one in a different region, leaving you with two backends and a second URL. Before you publish, find out what you have:
+
+```bash
+firebase apphosting:backends:list
+```
+
+Studio-created backends are usually named `studio` in `us-central1`. Then be explicit:
+
+> *"Publish my app to my existing App Hosting backend `studio` in `us-central1`. Don't create a new backend."*
+
+If it already created a stray one, delete it from the console (**App Hosting → backend → Settings**) or with `firebase apphosting:backends:delete <id>` so you aren't billed for two.
+
+**If the cloud build fails after a local build succeeded.** The failure message includes a Cloud Build log link; the agent can't open the Cloud Console, so click it yourself and paste the last error into the chat. The most common cause is missing build-time environment variables. Your `firebase.ts` reads `NEXT_PUBLIC_FIREBASE_*` from `process.env`, and Next.js runs that code while prerendering pages during `npm run build` — so the values have to be present in the cloud builder, not just in your local `.env.local`, which is gitignored and never uploaded. The fix is to declare them in `apphosting.yaml`:
+
+```yaml
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: your-web-api-key
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: your-project.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: your-project
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: your-project.appspot.com
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "1234567890"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:1234567890:web:abc123
+```
+
+Plain `value:` is fine for these — they're the public web config that ships to every browser anyway. Anything actually secret (`GEMINI_API_KEY`, server-side keys) must use `secret:` and Cloud Secret Manager instead; see Section 6, Path A. The second most common cause is a Node runtime mismatch between an older backend and a newer Next.js; the build log will say so.
+
+Then redeploy — `npx firebase-tools deploy` from the terminal, or ask the agent. A successful App Hosting deploy also pushes `firestore.rules`, and the live URL follows the pattern `https://<backend>--<project-id>.<region>.hosted.app`.
+
+### What about the files still in Firebase Studio?
+
+After deploying from your machine you'll notice the Studio editor still shows the old files. That's expected: `firebase deploy` uploads directly from your local folder, and nothing syncs back to Studio. There is no need to update it — Studio is being sunset (see the top of this guide) and your local folder is now the source of truth. Don't edit in both places.
+
+What you should do instead is get the local folder under version control so it exists somewhere other than one hard drive:
+
+```bash
+git init
+git add .
+git status        # confirm no .env* or key files are staged
+git commit -m "Migrate from Firebase Studio to Antigravity"
+```
+
+Then create a GitHub repo and push. Once it's on GitHub you can also connect the App Hosting backend to the repo for automatic rollouts (Section 10, Path A).
 
 Continue at Section 5.
 
@@ -353,6 +453,20 @@ These prompts apply to both paths. Phrase them your own way; the agent understan
 
 The agent locates the rules file from `firebase.json`, walks each `match` block, and prints current-vs-proposed rules in the chat. The full rules blueprint in Section 7 is a good baseline to hand it.
 
+One finding to expect on Studio-generated projects: a legacy collection with no rule at all (Studio prototypes often leave a top-level collection behind). Firestore denies any path no rule matches, so this is secure as-is, but the agent will suggest an explicit catch-all so the intent is visible to the next person reading the file:
+
+```javascript
+match /databases/{database}/documents {
+  // Explicit default-deny for anything not matched below.
+  match /{document=**} {
+    allow read, write: if false;
+  }
+  // ...specific match blocks follow
+}
+```
+
+Worth accepting. Just understand what it does and doesn't do: Firestore grants access if *any* matching rule allows it, so this block never overrides a specific `allow` — it only documents the default. Your real protection is still the per-collection rules. Ask the agent to *"apply the rule"* and it edits the file; it isn't live until you deploy (see below).
+
 **Verify rules against the emulator**
 
 > *"Start the Firestore emulator and write a rules unit test that proves an anonymous user cannot read `/users/{id}`."*
@@ -362,6 +476,8 @@ Or do it yourself with `firebase emulators:start --only firestore` and use the E
 **Pre-deploy check**
 
 > *"Prepare this app for deployment. Run the production build, check that `firestore.rules` is registered in `firebase.json`, confirm no secrets are in source, and list any environment variables I still need to set."*
+
+Reading the result: a `next build` that logs warnings about large images or PDFs not being precached by the service worker is still a passing build. The environment-variable list it produces is the set you'll need in `apphosting.yaml` (public `NEXT_PUBLIC_*` config) or Secret Manager (`GEMINI_API_KEY` and any other server-side key) — and if a key has been sitting in `.env.local` on a Studio workspace for months, rotate it before it goes to production. The "no secrets in source" check only inspects files git tracks, so it proves nothing until you've run `git init`.
 
 **Deploy**
 
@@ -418,6 +534,10 @@ env:
 ```
 
 Create the secret with `firebase apphosting:secrets:set gemini-api-key`.
+
+Your public `NEXT_PUBLIC_FIREBASE_*` config also belongs in this file, as plain `value:` entries. The cloud builder doesn't see your `.env.local`, and Next.js needs those values while prerendering, so a build that passes locally will fail in the cloud without them (the full fix is under "Republish" in Section 3).
+
+**First deploy from the CLI.** `firebase deploy` walks you through a few prompts when it can't find a backend: pick a **region** (match your Firestore region — usually `us-central1` — unless you have a reason not to), accept the default **Node.js runtime**, and confirm the backend name. If a Studio-created backend already exists, don't create a new one — `firebase apphosting:backends:list` shows what's there, and the agent needs to be told about it explicitly.
 
 Then either let the agent handle it (`Publish my app`) or connect the backend to GitHub yourself — see Section 10, Path A.
 
@@ -873,6 +993,7 @@ Two things to know about this file:
 
 ## 11. Next Steps
 
+- If you deployed via `firebase deploy` from your machine, push the repo to GitHub and connect it to your App Hosting backend so you stop depending on one laptop for releases.
 - Add rules tests for your app's real collections and fields — timestamps, enums, string length limits, and any cross-document references.
 - Wire the Auth emulator into the seed script so you can test third-party sign-in flows (Google, Apple) offline.
 - If you're on App Hosting, look at `apphosting.staging.yaml` and a second backend for a staging environment before you scale up.
