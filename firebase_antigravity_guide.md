@@ -15,8 +15,9 @@ A working guide to developing Firebase apps locally with the Google Antigravity 
 7. [Production Firestore Security Rules](#7-production-firestore-security-rules)
 8. [Local Emulator Seeding](#8-local-emulator-seeding)
 9. [Firestore Rules Unit Tests](#9-firestore-rules-unit-tests)
-10. [Continuous Deployment](#10-continuous-deployment)
-11. [Next Steps](#11-next-steps)
+10. [Deploying from the CLI: A Repeatable Publish Workflow](#10-deploying-from-the-cli-a-repeatable-publish-workflow)
+11. [Continuous Deployment](#11-continuous-deployment)
+12. [Next Steps](#12-next-steps)
 
 ---
 
@@ -293,7 +294,7 @@ tmp/
 .claude/
 ```
 
-The agent may also propose ignoring `firestore.rules` and `.firebaserc`. Think twice before accepting. Neither contains a secret — `.firebaserc` is just your project ID, and rules are access policy, not credentials — and **the CI workflows in Section 10 need `firestore.rules` in the repository** to test and deploy it. If your repo is private, commit both. Ignore them only if the repo is public and you'd rather not advertise your data model; then keep a copy somewhere safe, because losing the rules file means reconstructing it from the console.
+The agent may also propose ignoring `firestore.rules` and `.firebaserc`. Think twice before accepting. Neither contains a secret — `.firebaserc` is just your project ID, and rules are access policy, not credentials — and **the CI workflows in Section 11 need `firestore.rules` in the repository** to test and deploy it. If your repo is private, commit both. Ignore them only if the repo is public and you'd rather not advertise your data model; then keep a copy somewhere safe, because losing the rules file means reconstructing it from the console.
 
 Note that "confirm no secrets are in source" checks are meaningless until `git init` has actually run — the agent can only check what git tracks. If you haven't initialized a repo yet, do it now (`git init`), then check `git status` and make sure `.env.local` and friends aren't listed.
 
@@ -352,7 +353,7 @@ git status        # confirm no .env* or key files are staged
 git commit -m "Migrate from Firebase Studio to Antigravity"
 ```
 
-Then create a GitHub repo and push. Once it's on GitHub you can also connect the App Hosting backend to the repo for automatic rollouts (Section 10, Path A).
+Then create a GitHub repo and push. Once it's on GitHub you can also connect the App Hosting backend to the repo for automatic rollouts (Section 11, Path A).
 
 **If you use GitHub Desktop**, let the agent run `git init` and stage the files, then do the rest in the app — it's the easiest way to get a *private* repo without touching the `gh` CLI:
 
@@ -369,7 +370,7 @@ Everything the agent needs to redeploy lives in the project files, not in the ch
 - **Open the right folder.** The agent's working directory is whatever's open in Antigravity. With the project folder open it reads `.firebaserc` (which Firebase project), `firebase.json` (which App Hosting backend, where the rules are), and `apphosting.yaml` (build-time config) and picks up where you left off.
 - **No special phrasing.** *"Publish my app"*, *"Deploy only my Firestore rules"*, or *"Run the build and then deploy to production"* all work.
 - **New environment variables go in two different places.** A `NEXT_PUBLIC_*` value the static build needs goes in `apphosting.yaml` as a plain `value:`. A real secret stays in `.env.local` locally and goes to App Hosting via `firebase apphosting:secrets:set` with a `secret:` reference in `apphosting.yaml`. Forgetting the first is the build failure described above; putting the second in `value:` leaks it into a committed file.
-- **Commit and push after each session you're happy with**, so the GitHub copy stays current. `firebase deploy` doesn't touch git and git doesn't trigger a deploy unless you've connected the backend to the repo (Section 10, Path A) — they're independent until you wire them together.
+- **Commit and push after each session you're happy with**, so the GitHub copy stays current. `firebase deploy` doesn't touch git and git doesn't trigger a deploy unless you've connected the backend to the repo (Section 11, Path A) — they're independent until you wire them together.
 
 Continue at Section 5.
 
@@ -518,7 +519,7 @@ This is the decision that shapes everything downstream, so make it deliberately.
 | Fits | Next.js / Angular apps with server components, API routes, server actions, Genkit flows, or middleware | Pure client-side SPAs: Vite/React, Angular without SSR, Next.js with `output: 'export'` |
 | Firebase Studio default | ✅ Apps built with the App Prototyping agent deploy here | ❌ |
 | Billing | Requires the Blaze (pay-as-you-go) plan | Free tier available |
-| CI/CD | Built in — push to the live branch triggers a rollout | You wire it up yourself (see Section 10) |
+| CI/CD | Built in — push to the live branch triggers a rollout | You wire it up yourself (see Section 11) |
 
 **Rule of thumb:** if your app came from Studio's App Prototyping agent, it's a Next.js app already deployed to App Hosting. Stay there unless you have a specific reason to go static. Forcing `output: 'export'` onto an app that uses any server-side feature will break it at build time.
 
@@ -556,7 +557,7 @@ Your public `NEXT_PUBLIC_FIREBASE_*` config also belongs in this file, as plain 
 
 **First deploy from the CLI.** `firebase deploy` walks you through a few prompts when it can't find a backend: pick a **region** (match your Firestore region — usually `us-central1` — unless you have a reason not to), accept the default **Node.js runtime**, and confirm the backend name. If a Studio-created backend already exists, don't create a new one — `firebase apphosting:backends:list` shows what's there, and the agent needs to be told about it explicitly.
 
-Then either let the agent handle it (`Publish my app`) or connect the backend to GitHub yourself — see Section 10, Path A.
+Then either let the agent handle it (`Publish my app`) or connect the backend to GitHub yourself — see Section 11, Path A. For the full manual publish workflow (validation, dry runs, selective deploys, post-deploy checks), see Section 10.
 
 ### Path B — Firebase Hosting (static)
 
@@ -905,7 +906,121 @@ npm run test:rules
 
 ---
 
-## 10. Continuous Deployment
+## 10. Deploying from the CLI: A Repeatable Publish Workflow
+
+The prompts in Section 5 cover the common case, but it's worth knowing the exact commands the agent runs — both so you can read its plans critically and so you can publish without spending agent tokens at all. This is the full manual cycle: validate, dry-run, deploy, verify. It assumes the App Hosting path (Section 6, Path A); the same shape works for static Hosting with `--only hosting`.
+
+A note on invocation: the commands below use the globally installed `firebase` from Section 1. If you'd rather always run the latest CLI without a global install (or match what the agent tends to do), substitute `npx -y firebase-tools@latest` for `firebase` in any of them.
+
+### 10.1 Confirm you're pointed at the right place
+
+Deploys go wherever the CLI's login and `.firebaserc` say, so start every session by confirming both:
+
+```bash
+# Who am I logged in as, and which projects can I see?
+firebase projects:list
+
+# Confirm or select the active project (matches .firebaserc)
+firebase use your-project-id
+
+# Which App Hosting backends exist, and where do they point?
+firebase apphosting:backends:list
+```
+
+That last one matters more than it looks: it's how you avoid the duplicate-backend trap from Section 3 — know your backend's ID and region *before* deploying, and name them if the CLI or agent asks.
+
+### 10.2 Validate locally before publishing
+
+A deploy that fails in Cloud Build wastes ten minutes per attempt; catch what you can locally first.
+
+```bash
+# Clean production build — the same thing the cloud builder will run
+npm run build
+```
+
+If your project has a typecheck script, run it too — `next build` can be configured to ignore type errors, so a green build isn't proof of clean types:
+
+```bash
+npm run typecheck
+```
+
+Then do a dry run. It validates your Firebase configuration, compiles `firestore.rules`, and confirms the App Hosting backend pairing — without changing anything live:
+
+```bash
+# Dry run all configured targets (App Hosting + Firestore rules)
+firebase deploy --dry-run
+
+# Or just App Hosting
+firebase deploy --only apphosting --dry-run
+```
+
+### 10.3 Publish
+
+The standard full deploy pushes both the web app and your Firestore security rules:
+
+```bash
+firebase deploy
+```
+
+What that one command actually does, in order:
+
+1. Validates and compiles `firestore.rules`.
+2. Releases the updated rules to Cloud Firestore.
+3. Packages your source directory (minus anything listed under `apphosting.ignore` in `firebase.json`).
+4. Uploads the source bundle to a Cloud Storage bucket (`gs://firebaseapphosting-sources-…`).
+5. Triggers Cloud Build to construct the container image.
+6. Starts a rollout on your backend and switches live traffic once the new revision is healthy.
+
+Steps 1–2 are why "deploying the site" also replaces your live rules — usually what you want, but worth knowing. If it isn't, deploy selectively:
+
+```bash
+# Website only
+firebase deploy --only apphosting
+
+# Firestore security rules only
+firebase deploy --only firestore:rules
+```
+
+### 10.4 Verify the deploy landed
+
+Don't take the CLI's success message as the last word — check the backend and hit the live URL.
+
+```bash
+# Backend config and last-updated timestamp
+firebase apphosting:backends:get <backend-id>
+```
+
+Build logs and rollout status live in the Firebase console under **App Hosting** for your project. Then confirm the site actually answers:
+
+```bash
+# Bash / cURL — expect HTTP/2 200
+curl -I https://your-app.example.com
+curl -I https://<backend-id>--<project-id>.<region>.hosted.app
+```
+
+```powershell
+# PowerShell equivalent
+Invoke-WebRequest -Uri "https://your-app.example.com" -UseBasicParsing
+```
+
+The `hosted.app` URL is the backend's direct address and works even if your custom domain's DNS is misbehaving — checking both tells you whether a failure is the deploy or the domain.
+
+### 10.5 Cheat sheet
+
+| Task | Command |
+|---|---|
+| Local dev server | `npm run dev` |
+| Production build | `npm run build` |
+| Dry-run deploy | `firebase deploy --dry-run` |
+| **Publish site & rules** | **`firebase deploy`** |
+| Publish site only | `firebase deploy --only apphosting` |
+| Publish rules only | `firebase deploy --only firestore:rules` |
+| List backends | `firebase apphosting:backends:list` |
+| Inspect a backend | `firebase apphosting:backends:get <backend-id>` |
+
+---
+
+## 11. Continuous Deployment
 
 ### Path A — App Hosting (built in)
 
@@ -1008,7 +1123,7 @@ Two things to know about this file:
 
 ---
 
-## 11. Next Steps
+## 12. Next Steps
 
 - If you deployed via `firebase deploy` from your machine, push the repo to GitHub and connect it to your App Hosting backend so you stop depending on one laptop for releases.
 - Add rules tests for your app's real collections and fields — timestamps, enums, string length limits, and any cross-document references.
