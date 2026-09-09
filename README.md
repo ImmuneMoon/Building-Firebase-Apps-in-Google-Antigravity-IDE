@@ -27,3 +27,13 @@ The main document (`firebase_antigravity_guide.md`) is organized into eleven sec
 
 ## 🚀 How to Use
 Open `firebase_antigravity_guide.md` in any Markdown viewer, text editor, or code editor (such as VS Code, Obsidian, or GitHub's built-in preview). Work through Sections 1 and 2 first, then follow **either** Section 3 (migrating) **or** Section 4 (new project), and continue from Section 5 onward.
+
+## ☕ Support the Project
+
+If you find this extension helpful and want to support further development by Fulllion Creative Works, consider leaving a tip!
+
+* [Donate via PayPal](https://www.paypal.com/donate/?hosted_button_id=LCDZX75HR4CLC)
+* [Support on Ko-fi](https://ko-fi.com/fulllion)
+
+---
+© 2026 Fulllion Creative Works. All rights reserved.
