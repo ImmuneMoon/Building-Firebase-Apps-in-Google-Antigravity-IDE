@@ -28,6 +28,8 @@ The main document (`firebase_antigravity_guide.md`) is organized into eleven sec
 ## 🚀 How to Use
 Open `firebase_antigravity_guide.md` in any Markdown viewer, text editor, or code editor (such as VS Code, Obsidian, or GitHub's built-in preview). Work through Sections 1 and 2 first, then follow **either** Section 3 (migrating) **or** Section 4 (new project), and continue from Section 5 onward.
 
+For putting your deployed app on your own domain (custom domains and subdomains through Cloudflare DNS, starting from a domain registered at Squarespace), see the companion guide, [Connecting a Custom Domain to Firebase App Hosting](https://github.com/ImmuneMoon/Connecting-a-Custom-Domain-to-Firebase-App-Hosting).
+
 ## ☕ Support the Project
 
 If you find this project helpful and want to support further development by Fulllion Creative Works, consider leaving a tip!

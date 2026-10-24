@@ -1059,6 +1059,7 @@ Two things to know about this file:
 ## 11. Next Steps
 
 - If you deployed via `firebase deploy` from your machine, push the repo to GitHub and connect it to your App Hosting backend so you stop depending on one laptop for releases.
+- Put the app on your own domain instead of the `hosted.app` URL. The companion guide, [Connecting a Custom Domain to Firebase App Hosting](https://github.com/ImmuneMoon/Connecting-a-Custom-Domain-to-Firebase-App-Hosting), walks through custom domains and subdomains with Cloudflare DNS.
 - Add rules tests for your app's real collections and fields — timestamps, enums, string length limits, and any cross-document references.
 - Wire the Auth emulator into the seed script so you can test third-party sign-in flows (Google, Apple) offline.
 - If you're on App Hosting, look at `apphosting.staging.yaml` and a second backend for a staging environment before you scale up.
