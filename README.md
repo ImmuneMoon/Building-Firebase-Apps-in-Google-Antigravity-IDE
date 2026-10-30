@@ -6,6 +6,8 @@
 ![Checked against official docs, September 2026](https://img.shields.io/badge/Checked-Sep%202026-2ea44f)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey)](LICENSE)
 
+**📄 [Download the PDF](Building-Firebase-Apps-in-Google-Antigravity-IDE.pdf)**
+
 ## 📖 Overview
 **Building Firebase Apps in Google Antigravity IDE** is a step-by-step guide to developing, testing, and deploying Firebase applications locally using Google's agent-first Antigravity IDE. It covers two starting points — migrating an existing Firebase Studio project, or starting a new codebase from scratch — and carries both through to a production-grade workflow with Cloud Firestore, the Local Emulator Suite, security rules unit tests, and automated deployments.
 
