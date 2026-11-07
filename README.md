@@ -3,7 +3,6 @@
 ![Firebase](https://img.shields.io/badge/Firebase-Firestore%20%7C%20App%20Hosting-FFCA28?logo=firebase&logoColor=white)
 ![Google Antigravity IDE](https://img.shields.io/badge/IDE-Google%20Antigravity-4285F4?logo=google&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-ready-000000?logo=nextdotjs&logoColor=white)
-![Checked against official docs, September 2026](https://img.shields.io/badge/Checked-Sep%202026-2ea44f)
 [![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey)](LICENSE)
 
 **📄 [Download the PDF](Building-Firebase-Apps-in-Google-Antigravity-IDE.pdf)**
