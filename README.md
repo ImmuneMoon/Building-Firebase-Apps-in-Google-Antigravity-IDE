@@ -24,6 +24,8 @@ Download the PDF above, or read on below. Work through Sections 1 and 2 first, t
 
 For putting your deployed app on your own domain (custom domains and subdomains through Cloudflare DNS, starting from a domain registered at Squarespace), see the companion guide, [Connecting a Custom Domain to Firebase App Hosting](https://github.com/ImmuneMoon/Connecting-a-Custom-Domain-to-Firebase-App-Hosting).
 
+For letting your app store users' files, see [Private Cloud Storage for a Next.js Site on Firebase App Hosting](https://github.com/ImmuneMoon/Private-Cloud-Storage-for-Firebase-App-Hosting). It sets up a private bucket with signed upload and download links, and no key file.
+
 ---
 
 <!-- guide:start -->
@@ -1088,6 +1090,7 @@ Two things to know about this file:
 
 - If you deployed via `firebase deploy` from your machine, push the repo to GitHub and connect it to your App Hosting backend so you stop depending on one laptop for releases.
 - Put the app on your own domain instead of the `hosted.app` URL. The companion guide, [Connecting a Custom Domain to Firebase App Hosting](https://github.com/ImmuneMoon/Connecting-a-Custom-Domain-to-Firebase-App-Hosting), walks through custom domains and subdomains with Cloudflare DNS.
+- Let users store files. [Private Cloud Storage for a Next.js Site on Firebase App Hosting](https://github.com/ImmuneMoon/Private-Cloud-Storage-for-Firebase-App-Hosting) sets up a private bucket with signed upload and download links, including the size limits that break large uploads on App Hosting.
 - Add rules tests for your app's real collections and fields — timestamps, enums, string length limits, and any cross-document references.
 - Wire the Auth emulator into the seed script so you can test third-party sign-in flows (Google, Apple) offline.
 - If you're on App Hosting, look at `apphosting.staging.yaml` and a second backend for a staging environment before you scale up.
