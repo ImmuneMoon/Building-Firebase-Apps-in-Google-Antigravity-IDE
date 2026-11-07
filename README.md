@@ -26,6 +26,8 @@ For putting your deployed app on your own domain (custom domains and subdomains 
 
 For letting your app store users' files, see [Private Cloud Storage for a Next.js Site on Firebase App Hosting](https://github.com/ImmuneMoon/Private-Cloud-Storage-for-Firebase-App-Hosting). It sets up a private bucket with signed upload and download links, and no key file.
 
+For where Firebase fits among backend options, and how it compares with Supabase, see [Full Stack Web Development and Stacks](https://github.com/ImmuneMoon/Full-Stack-Web-Development-and-Stacks#7-backend-as-a-service-firebase-and-supabase). Before you turn on the Gemini API in a Firebase project, read [When a "public" key stops being safe](https://github.com/ImmuneMoon/Publishing-to-GitHub-with-gh#64-when-a-public-key-stops-being-safe-google-api-keys-and-gemini): in 2026, researchers found that the web API key Firebase calls safe to publish could quietly gain Gemini access when Gemini was turned on in the same project. Restrict your keys, and keep Gemini keys on the server.
+
 ---
 
 <!-- guide:start -->
@@ -52,7 +54,7 @@ A working guide to developing Firebase apps locally with the Google Antigravity 
 
 ## 1. Local Runtime Environment Setup
 
-Antigravity and the Firebase CLI both require **Node.js 20 or higher**, and the migration workflow requires **Firebase CLI 15.10.0 or higher**.
+Antigravity and the Firebase CLI both require **Node.js 20 or higher**, and the migration workflow requires **Firebase CLI 15.10.0 or higher**. Node.js 20 reached end of life on April 30, 2026, so install a current LTS release (24 or newer) to keep getting security fixes.
 
 ### Windows
 
@@ -104,11 +106,11 @@ Verify with `where.exe npm` — it should print a path under `C:\Program Files\n
    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    ```
 
-2. Install and link Node.js 20:
+2. Install and link Node.js 24 (an LTS release):
 
    ```bash
-   brew install node@20
-   brew link node@20
+   brew install node@24
+   brew link node@24
    ```
 
 3. Verify:
@@ -1048,11 +1050,11 @@ jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
